@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dépôt de Colis - Garage</title>
+  <!-- Librairie gratuite de scan Code-Barres / QR Code -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f9; padding: 20px; margin: 0; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+    h2 { color: #333; }
+    #reader { width: 100%; margin-top: 15px; border-radius: 8px; overflow: hidden; }
+    input { width: 80%; padding: 12px; margin: 10px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; text-transform: uppercase; text-align: center; }
+    button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 85%; font-weight: bold; }
+    button:disabled { background: #ccc; }
+    #status { margin-top: 15px; font-weight: bold; font-size: 18px; }
+    .success { color: #28a745; }
+    .error { color: #dc3545; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>📦 Dépôt de Colis</h2>
+  <p>Scannez l'étiquette du colis ou entrez le numéro de suivi ci-dessous pour ouvrir le garage.</p>
+
+  <!-- Zone du scanner Caméra -->
+  <div id="reader"></div>
+
+  <p><strong>OU</strong></p>
+
+  <!-- Zone de saisie manuelle -->
+  <input type="text" id="trackingInput" placeholder="N° de suivi (ex: 6A1234567...)" />
+  <br>
+  <button id="sendBtn" onclick="validerColis()">Valider et Ouvrir</button>
+
+  <div id="status"></div>
+</div>
+
+<script>
+  // Remplacez par l'URL de votre Webhook Home Assistant + Token de sécurité
+  const WEBHOOK_URL = "https://votre-home-assistant.duckdns.org/api/webhook/depot_colis_garage?token=MON_TOKEN_SECRET_12345";
+
+  // Fonction pour envoyer le numéro à Home Assistant
+  async function validerColis(codeScanne = null) {
+    const input = document.getElementById('trackingInput');
+    const statusDiv = document.getElementById('status');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // On nettoie le code (retrait des espaces, passage en majuscules)
+    const trackingCode = (codeScanne || input.value).trim().toUpperCase();
+
+    if (!trackingCode) {
+      statusDiv.className = "error";
+      statusDiv.innerText = "Veuillez entrer un numéro valide.";
+      return;
+    }
+
+    sendBtn.disabled = true;
+    statusDiv.className = "";
+    statusDiv.innerText = "Vérification en cours...";
+
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tracking_number: trackingCode })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === "success") {
+        statusDiv.className = "success";
+        statusDiv.innerText = "✅ Garage en cours d'ouverture ! Déposez le colis et refermez en sortant.";
+        if(html5QrcodeScanner) html5QrcodeScanner.clear(); // Arrete la caméra
+      } else {
+        statusDiv.className = "error";
+        statusDiv.innerText = "❌ Numéro non reconnu ou déjà utilisé.";
+      }
+    } catch (error) {
+      statusDiv.className = "error";
+      statusDiv.innerText = "⚠️ Erreur de connexion au serveur.";
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  // Initialisation du scanner de code-barres
+  function onScanSuccess(decodedText, decodedResult) {
+    document.getElementById('trackingInput').value = decodedText;
+    validerColis(decodedText);
+  }
+
+  let html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader", { fps: 10, qrbox: {width: 250, height: 150} }, /* verbose= */ false
+  );
+  html5QrcodeScanner.render(onScanSuccess);
+</script>
+
+</body>
+</html>
