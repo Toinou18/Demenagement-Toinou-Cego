@@ -1,0 +1,21 @@
+---
+---
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Index</title>
+</head>
+<body>
+  <h1>Mes Pages</h1>
+  <ul>
+    {% for page in site.html_pages %}
+      {% if page.name != "index.html" %}
+        <li>
+          <a href="{{ page.url }}">{{ page.title | default: page.name }}</a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</body>
+</html>
